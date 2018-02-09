@@ -2,25 +2,24 @@ import paramiko
 import os    
 import datetime   
 import stat 
-hostname='10.0.2.15'
+import re
+hostname='192.168.1.68'
 username='haoren'
 password='123456'
 port=22
 local_dir='C:\Users\Hallam\Desktop\hello\\'
-remote_dir='\hello\\'
-
-print os.path.isfile(local_dir+"Test.py")
-
+remote_dir='\\hello\\'
 
 def sftp_connect(hostname,port,username,password):
     try:    
             t=paramiko.Transport((hostname,port))    
             t.connect(username=username,password=password)    
             sftp=paramiko.SFTPClient.from_transport(t) 
-            return sftp
+            return sftp,t
                             
-    except Exception:    
-        print "error!"           
+    except Exception:
+
+        return False           
     # t.close()
 
 def is_dir(local_dir,remote_dir,f,sftp):
@@ -39,13 +38,24 @@ def is_dir(local_dir,remote_dir,f,sftp):
         print local_dir+f.filename
         return True
 
-def index(hostname,port,username,password,local_dir,remote_dir):
-    sftp = sftp_connect(hostname,port,username,password)
-    mkdir(local_dir)   
-    # last_get(local_dir,remote_dir,sftp)
-    files=sftp.listdir_attr(remote_dir) 
-    for f in files: 
-         is_dir(local_dir,remote_dir,f,sftp)
+def sftp_start(hostname,port,username,password,local_dir,remote_dir):
+    sftp,t = sftp_connect(hostname,port,username,password)
+    if not sftp:
+        print "connect fail"
+    else:
+        del_mkdir(local_dir)
+        mkdir(local_dir) 
+        try:
+                sftp.stat(remote_dir)
+                print "the remote_dir is exist"     
+                files=sftp.listdir_attr(remote_dir)
+                for f in files: 
+                        version = mat_ch(f)
+                        is_dir(local_dir,remote_dir,f,sftp)
+                t.close()
+                return version
+        except Exception:
+                print "the remote_dir is not exist"
 
 def get_file(local_dir,remote_dir,f,sftp):          
     print ''    
@@ -54,7 +64,7 @@ def get_file(local_dir,remote_dir,f,sftp):
     print 'Downloading file:',os.path.join(remote_dir,f.filename)    
 
     sftp.get(os.path.join(remote_dir,f.filename),os.path.join(local_dir,f.filename))    
-   # sftp.put(os.path.join(local_dir,f),os.path.join(remote_dir,f))    
+    # sftp.put(os.path.join(local_dir,f.filename),os.path.join(remote_dir,f.filename))    
 
     print 'Download file success %s ' % datetime.datetime.now()    
     print ''    
@@ -76,6 +86,24 @@ def mkdir (local_dir):
         print local_dir+" is exists"
         return False
 
+def del_mkdir(local_dir):
+    os.system("del /F /S /Q "+local_dir)
+    print("delete success")
 
 
-index(hostname,port,username,password,local_dir,remote_dir)
+def mat_ch(f):
+    pattern = re.compile(r'(?<=RLHost_X798_Flex_)(\d+\.\d+\.\d+)')
+    match = pattern.search(f.filename)
+    if match:
+        # print f.filename
+        return match.group()
+    else:
+        return False
+
+# for i in xrange(1,3):
+    # path = local_dir+'hello'+str(i)+'\\'
+    # print path
+    # mkdir(path)
+version = sftp_start(hostname,port,username,password,local_dir,remote_dir)
+    # print version
+# os.system("C:\Users\Hallam\Desktop\TMUpdateTool\WinSCP\WinSCP.com sftp://macbook:123456@172.15.1.77")
